@@ -1,7 +1,7 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include "ds3231.hpp"
-#include "i2c_master.h"
+#include "i2c_master/i2c_master.h"
 
 uint8_t __attribute__((noinline)) bcd2bin(uint8_t val) { return val - 6 * (val >> 4); }
 uint8_t __attribute__((noinline)) bin2bcd(uint8_t val) { return val + 6 * (val / 10); }
@@ -39,7 +39,6 @@ bool DS3231::hasInterrupt()
 void DS3231::clearInterrupt()
 {
     INT0_Interrupt = 0;
-    // EIFR |= _BV(INTF0);
 }
 
 i2c_status_t DS3231::changeBit(uint8_t reg, uint8_t bit, uint8_t value)

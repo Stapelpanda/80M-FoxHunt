@@ -43,54 +43,60 @@
 
 class DS3231_Time
 {
-  public:
-    uint8_t Seconds;
-    uint8_t Minutes;
-    uint8_t Hours;
-    uint8_t DayOfWeek;
+public:
+  uint8_t Seconds;
+  uint8_t Minutes;
+  uint8_t Hours;
+  uint8_t DayOfWeek;
 
-    void addDays(uint8_t days);
-    void addHours(uint8_t hours);
-    void addMinutes(uint8_t minutes);
-    void addSeconds(uint8_t seconds);
+  void addDays(uint8_t days);
+  void addHours(uint8_t hours);
+  void addMinutes(uint8_t minutes);
+  void addSeconds(uint8_t seconds);
 
-    static uint8_t timesEqual(DS3231_Time *time1, DS3231_Time *time2, uint8_t checkUntill);
-    static uint32_t getDiffInSeconds(DS3231_Time *current, DS3231_Time *next);
+  static uint8_t timesEqual(DS3231_Time *time1, DS3231_Time *time2, uint8_t checkUntill);
+  static uint32_t getDiffInSeconds(DS3231_Time *current, DS3231_Time *next);
 };
 
 typedef enum {
-    ALARM_EACH_MINUTE = 0x0F,
-    ALARM_EACH_SECOND = 0x0F,
-    ALARM_MATCH_SECONDS = 0x0E,
-    ALARM_MATCH_MINUTES_SECONDS = 0x0C,
-    ALARM_MATCH_HOURS_MINUTES_SECONDS = 0x08,
-    ALARM_MATCH_DAYS_HOURS_MINUTES_SECONDS = 0x00,
+  ALARM_EACH_MINUTE = 0x0F,
+  ALARM_EACH_SECOND = 0x0F,
+  ALARM_MATCH_SECONDS = 0x0E,
+  ALARM_MATCH_MINUTES_SECONDS = 0x0C,
+  ALARM_MATCH_HOURS_MINUTES_SECONDS = 0x08,
+  ALARM_MATCH_DAYS_HOURS_MINUTES_SECONDS = 0x00,
 } alarmtype_t;
 
 typedef bool i2c_status_t;
 
 class DS3231
 {
-  private:
-    i2c_status_t changeBit(uint8_t reg, uint8_t bit, uint8_t value);
-    i2c_status_t setBit(uint8_t reg, uint8_t bit);
-    i2c_status_t clearBit(uint8_t reg, uint8_t bit);
-    i2c_status_t getHoursFromByte(uint8_t hourByte);
+private:
+  i2c_status_t changeBit(uint8_t reg, uint8_t bit, uint8_t value);
+  i2c_status_t setBit(uint8_t reg, uint8_t bit);
+  i2c_status_t clearBit(uint8_t reg, uint8_t bit);
+  i2c_status_t getHoursFromByte(uint8_t hourByte);
 
-  public:
-    i2c_status_t init();
-    i2c_status_t enable32KHz();
-    i2c_status_t disable32KHz();
-    i2c_status_t getTime(DS3231_Time *time);
+public:
+  i2c_status_t init();
+  i2c_status_t enable32KHz();
+  i2c_status_t disable32KHz();
+  i2c_status_t getTime(DS3231_Time *time);
 
-    bool hasInterrupt();
-    void clearInterrupt();
+  bool hasInterrupt();
+  void clearInterrupt();
 
-    i2c_status_t getStatus(uint8_t *alarmNum);
-    i2c_status_t getAlarm(uint8_t alarmNum, DS3231_Time *time);
-    i2c_status_t setAlarm(uint8_t alarmNum, DS3231_Time *time, alarmtype_t alarmType);
-    i2c_status_t enableAlarm(uint8_t alarmNum);
-    i2c_status_t disableAlarm(uint8_t alarmNum);
-    i2c_status_t resetAlarm(uint8_t alarmNum);
+  i2c_status_t getStatus(uint8_t *alarmNum);
+  i2c_status_t getAlarm(uint8_t alarmNum, DS3231_Time *time);
+  i2c_status_t setAlarm(uint8_t alarmNum, DS3231_Time *time, alarmtype_t alarmType);
+  i2c_status_t enableAlarm(uint8_t alarmNum);
+  i2c_status_t disableAlarm(uint8_t alarmNum);
+  i2c_status_t resetAlarm(uint8_t alarmNum);
+
+  static DS3231& getInstance()
+  {
+    static DS3231 INSTANCE;
+    return INSTANCE;
+  }
 };
 #endif

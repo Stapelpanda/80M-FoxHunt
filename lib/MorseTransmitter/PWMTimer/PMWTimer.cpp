@@ -1,7 +1,7 @@
 #include <avr/io.h>
-#include "PWMTimer.h"
+#include "PWMTimer.hpp"
 
-void PWMTimer_Init()
+void PWMTimer::init()
 {
 #ifdef ENABLE_OC1A
     DDRB |= _BV(PB1); 
@@ -19,16 +19,16 @@ void PWMTimer_Init()
     
 }
 
-void PWMTimer_EnableOutput()
+void PWMTimer::enableOutput()
 {
     #ifdef ENABLE_OC1A
     TCCR1A |= _BV(COM1A0);
     #endif
 }
 
-void PWMTimer_DisableOutput()
+void PWMTimer::disableOutput()
 {
     #ifdef ENABLE_OC1A
-    TCCR1A |= _BV(COM1A0);
+    TCCR1A &= ~_BV(COM1A0);
     #endif
 }

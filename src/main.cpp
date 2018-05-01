@@ -4,12 +4,11 @@
 #include <util/delay.h>
 #include <avr/wdt.h>
 
-#include "DS3231.hpp"
 #include "DIP.hpp"
-// #include "MorseTransmitter.hpp"
 
-#include "State.hpp"
-//#include "Mode.h"
+#include "DS3231.hpp"
+// #include "MorseTransmitter.hpp"
+#include "Timer0/Timer0.hpp"
 
 // Preflight Checks
 #ifndef __AVR_ATmega328P__
@@ -24,10 +23,11 @@
 #define DBG1 PD3
 #define DBG2 PD5
 
-State_t State;
+DIP DipSettings;
 // MorseTransmitter morseTransmitter;
+Timer0 timer;
 
-void initConfig()
+void setupMode()
 {
     // Check DIP Switches for Mode
     /*  Mode_t* dipMode;
@@ -52,77 +52,65 @@ void initConfig()
     }*/
 }
 
+// MorseString_t MT_ARDF = {8, {"MO", "MOE", "MOI", "MOS", "MOH", "MO5", "MO5E", "MO5I"}};
+
 int main(void)
 {
     // make the LED pin an output for PORTB5
     DDRD |= _BV(DBG1) | _BV(DBG2);
 
     // Init all Components
-    DIP_Init();
-    State.foxNum = DIP_Read_FoxNum();
-    State.namingScheme = DIP_Read_Mode();
+    DipSettings.init();
 
-    State.rtc.init();
+    // Initialize Peripherals
+    // - DS3231
+    DS3231::getInstance().init();
+    DS3231::getInstance().enable32KHz();
+
+    // Initialize Mode
+    setupMode();
     // morseTransmitter.init();
 
-    // morseTransmitter.setStringSet(MT_ARDF);
+    // morseTransmitter.setStringSet(&MT_ARDF);
     // morseTransmitter.setStringSetIndex(0);
+    // morseTransmitter.setStart();
 
-    initConfig();
-
+    timer.init();
+    timer.setTimer(0x100);
     sei();
-    uint8_t i = 0;
     DDRB |= _BV(PB1);
-    if (State.rtc.setAlarm(DS3231_ALARM_1, &State.modeAlarm, ALARM_EACH_MINUTE) == 0)
-    {
-        PORTB |= _BV(PB1);
-    }
-    if (State.rtc.enableAlarm(DS3231_ALARM_1) == 0)
-    {
-        PORTB &= ~_BV(PB1);
-    }
-    bool noSleep = 0;
-    
+
     while (1)
     {
-        
-        if (State.rtc.hasInterrupt())
+        if (timer.hasInterrupt())
         {
-            State.rtc.clearInterrupt();
-            if (State.rtc.getStatus(&i) == 0)
-            {
-                if (i & DS3231_ALARM_1)
-                {
-                    State.rtc.resetAlarm(DS3231_ALARM_1);
-                }
-                if (i & DS3231_ALARM_2)
-                {
-                    State.rtc.resetAlarm(DS3231_ALARM_2);
-                    
-                }
-            }
+            timer.clearInterrupt();
+            timer.setTimer(0x100);
+            PORTB ^= _BV(PB1);
         }
-        
-        // morseTransmitter.loop();
         /*
         // Loop Functions determine Sleep Mode
         uint8_t sleepModeTransmitMode = currentMode->loop();
-        uint8_t sleepModeTimer = MorseTransmitter_Loop();
         */
+        // uint8_t sleepModeTransmitter = morseTransmitter.loop();
         // Keep lowest sleep Mode, IDLE = 1, Extended Standby = 7 So higher is more risk (timers get shutdown after IDLE)
-        uint8_t sleepMode = SLEEP_MODE_PWR_DOWN;
 
-        // Atomic operation of setting Sleep mode
-        set_sleep_mode(sleepMode);
-        cli();
-        if (sleepMode)
+        uint8_t sleepMode = 0; //sleepModeTransmitter;
+
+        if (sleepMode > 0)
         {
-            sleep_enable();
+            // Atomic operation of setting Sleep mode
+            set_sleep_mode(sleepMode);
+            cli();
+            if (sleepMode)
+            {
+                sleep_enable();
+                sei();
+                sleep_cpu();
+                sleep_disable();
+            }
             sei();
-            sleep_cpu();
-            sleep_disable();
         }
-        sei();
     }
     return 0;
 }
