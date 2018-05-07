@@ -1,8 +1,8 @@
 #include "ARDF_Mode.hpp"
 
-ARDF_Mode::ARDF_Mode(DS3231 *rtcIn)
+ARDF_Mode::ARDF_Mode()
 {
-    rtc = rtcIn;
+    
 }
 
 void ARDF_Mode::Start()

@@ -54,6 +54,6 @@ struct Morse_t morsetab[] = {
     {'9', 47},
     {'0', 63}};
 
-#define morsetab_SIZE  (sizeof(morsetab)/sizeof(morsetab[0]))
+#define morsetab_SIZE  (sizeof(morsetab)/sizeof(Morse_t))
     
 #endif

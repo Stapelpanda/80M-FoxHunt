@@ -1,14 +1,11 @@
 #include <avr/io.h>
-#include <avr/interrupt.h>
 #include <avr/sleep.h>
-#include <util/delay.h>
-#include <avr/wdt.h>
+#include <avr/interrupt.h>
 
 #include "DIP.hpp"
-
 #include "DS3231.hpp"
-// #include "MorseTransmitter.hpp"
-#include "Timer0/Timer0.hpp"
+#include "MorseTransmitter.hpp"
+#include "ARDF_Mode.hpp"
 
 // Preflight Checks
 #ifndef __AVR_ATmega328P__
@@ -24,78 +21,69 @@
 #define DBG2 PD5
 
 DIP DipSettings;
-// MorseTransmitter morseTransmitter;
-Timer0 timer;
+MorseTransmitter morseTransmitter;
+ARDF_Mode ardfMode;
+
+MorseString_t MT_ARDF = {8, {"MO", "MOE", "MOI", "MOS", "MOH", "MO5", "MO5E", "MO5I"}};
+MorseString_t MT_ARDF_SHORT = {8, {"M", "ME", "MI", "MS", "MH", "M5", "M5E", "M5I"}};
+MorseString_t MT_CALLSIGN = {8, {"PB0MV", "PB0MV E", "PB0MV I", "PB0MV S", "PB0MV H", "PB0MV 5", "PB0MV 5E", "PB0MV 5I"}};
+MorseString_t MT_CALLSIGN2 = {8, {"PI6YRC", "PI6YRC E", "PI6YRC I", "PI6YRC S", "PI6YRC H", "PI6YRC 5", "PI6YRC 5E", "PI6YRC 5I"}};
 
 void setupMode()
 {
-    // Check DIP Switches for Mode
-    /*  Mode_t* dipMode;
-    switch(DIP_Read_Mode()){
-        case 0:
-            dipMode = &ARDF_Mode;
+    // Read out Dipswitches
+    DipSettings.init();
+    ardfMode.init();
+    morseTransmitter.init();
+
+    switch (DipSettings.getNamingScheme())
+    {
+    case 0:
+        morseTransmitter.setStringSet(&MT_ARDF);
         break;
-        case 1:
-            dipMode = &ARDF7_Mode;
+    case 1:
+        morseTransmitter.setStringSet(&MT_ARDF_SHORT);
         break;
-        case 2:
-            dipMode = &FAST_Mode;
+    case 2:
+        morseTransmitter.setStringSet(&MT_CALLSIGN);
         break;
-        case 3:
-            dipMode = &CONTINUOUS_Mode;
+    case 3:
+        morseTransmitter.setStringSet(&MT_CALLSIGN2);
         break;
     }
-    if(dipMode != currentMode){
-        currentMode->stop();
-        currentMode = dipMode;
-        currentMode->start();
-    }*/
-}
+    morseTransmitter.setStringSetIndex(DipSettings.getFoxNum());
 
-// MorseString_t MT_ARDF = {8, {"MO", "MOE", "MOI", "MOS", "MOH", "MO5", "MO5E", "MO5I"}};
+    ardfMode.setFoxNum(DipSettings.getFoxNum());
+    ardfMode.setMode((ARDF_Mode_t)DipSettings.getMode());
+}
 
 int main(void)
 {
     // make the LED pin an output for PORTB5
     DDRD |= _BV(DBG1) | _BV(DBG2);
 
-    // Init all Components
-    DipSettings.init();
-
     // Initialize Peripherals
     // - DS3231
     DS3231::getInstance().init();
     DS3231::getInstance().enable32KHz();
 
-    // Initialize Mode
-    setupMode();
-    // morseTransmitter.init();
+    // - Initialize Mode
+    // setupMode();
+    morseTransmitter.init();
+    morseTransmitter.setStringSet(&MT_ARDF);
+    morseTransmitter.setStringSetIndex(0);
 
-    // morseTransmitter.setStringSet(&MT_ARDF);
-    // morseTransmitter.setStringSetIndex(0);
-    // morseTransmitter.setStart();
-
-    timer.init();
-    timer.setTimer(0x100);
     sei();
-    DDRB |= _BV(PB1);
-
+    ardfMode.start();
+    // morseTransmitter.start();
     while (1)
     {
-        if (timer.hasInterrupt())
-        {
-            timer.clearInterrupt();
-            timer.setTimer(0x100);
-            PORTB ^= _BV(PB1);
-        }
-        /*
         // Loop Functions determine Sleep Mode
-        uint8_t sleepModeTransmitMode = currentMode->loop();
-        */
-        // uint8_t sleepModeTransmitter = morseTransmitter.loop();
+        uint8_t sleepModeMode = ardfMode.loop();
+        uint8_t sleepModeTransmitter = morseTransmitter.loop();
+        
         // Keep lowest sleep Mode, IDLE = 1, Extended Standby = 7 So higher is more risk (timers get shutdown after IDLE)
-
-        uint8_t sleepMode = 0; //sleepModeTransmitter;
+        uint8_t sleepMode = sleepModeMode < sleepModeTransmitter ? sleepModeMode : sleepModeTransmitter;
 
         if (sleepMode > 0)
         {

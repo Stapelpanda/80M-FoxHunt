@@ -43,19 +43,19 @@ class DIP
     }
     uint8_t getFoxNum()
     {
-        return foxNum;
+        return (foxNum & 0x07);
     }
     uint8_t getMode()
     {
-        return mode;
+        return (mode & 0x03);
     }
     uint8_t getNamingScheme()
     {
-        return namingScheme;
+        return (namingScheme & 0x03);
     }
     uint8_t getDebug()
     {
-        return debug;
+        return (debug & 0x01);
     }
 };
 

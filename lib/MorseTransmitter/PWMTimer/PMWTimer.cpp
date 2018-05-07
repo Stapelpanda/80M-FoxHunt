@@ -30,5 +30,6 @@ void PWMTimer::disableOutput()
 {
     #ifdef ENABLE_OC1A
     TCCR1A &= ~_BV(COM1A0);
+    PORTB |= _BV(PB1);
     #endif
 }

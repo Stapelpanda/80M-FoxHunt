@@ -6,23 +6,24 @@
 uint8_t __attribute__((noinline)) bcd2bin(uint8_t val) { return val - 6 * (val >> 4); }
 uint8_t __attribute__((noinline)) bin2bcd(uint8_t val) { return val + 6 * (val / 10); }
 
-bool INT0_Interrupt = 0;
+bool DS3231::INT0_Interrupt = 0;
 //external interrupt 0 wakes the MCU
 ISR(INT0_vect)
 {
-    INT0_Interrupt = 1;
+    DS3231::INT0_Interrupt = 1;
 }
 
 i2c_status_t DS3231::init()
 {
     i2c_init();
-    i2c_status_t res = 0;
+    i2c_status_t res = I2C_ok;
     // Reset all stuff
-    res |= disableAlarm(DS3231_ALARM_1);
-    res |= disableAlarm(DS3231_ALARM_2);
-    res |= resetAlarm(DS3231_ALARM_1);
-    res |= resetAlarm(DS3231_ALARM_2);
-    res |= disable32KHz();
+    res = (i2c_status_t)
+    (disableAlarm(DS3231_ALARM_1) |
+           disableAlarm(DS3231_ALARM_2) |
+           resetAlarm(DS3231_ALARM_1) |
+           resetAlarm(DS3231_ALARM_2) |
+           disable32KHz());
 
     // This should not be here :(
     PORTD |= _BV(PD2);
@@ -34,7 +35,7 @@ i2c_status_t DS3231::init()
 
 bool DS3231::hasInterrupt()
 {
-    return INT0_Interrupt ;
+    return INT0_Interrupt;
 }
 void DS3231::clearInterrupt()
 {
@@ -54,11 +55,11 @@ i2c_status_t DS3231::changeBit(uint8_t reg, uint8_t bit, uint8_t value)
         {
             readTemp &= ~_BV(bit);
         }
-        return i2c_writeReg(DS3231_ADDRESS, reg, &readTemp, 1);
+        return (i2c_status_t)i2c_writeReg(DS3231_ADDRESS, reg, &readTemp, 1);
     }
     else
     {
-        return 1;
+        return I2C_err;
     }
 }
 
@@ -82,7 +83,7 @@ i2c_status_t DS3231::disable32KHz()
     return clearBit(DS3231_REG_STATUS, DS3231_BIT_32KHZ);
 }
 
-i2c_status_t DS3231::getHoursFromByte(uint8_t hourByte)
+uint8_t DS3231::getHoursFromByte(uint8_t hourByte)
 {
     // BIT_24 => 0 = 24 Hour, 1 = 12 Hour
     if ((hourByte & DS3231_BIT_24) == 0)
@@ -109,17 +110,17 @@ i2c_status_t DS3231::getTime(DS3231_Time *timeStruct)
         timeStruct->Seconds = bcd2bin(tempBytes[0]);
         timeStruct->Minutes = bcd2bin(tempBytes[1]);
         timeStruct->Hours = getHoursFromByte(tempBytes[2]);
-        return 0;
+        return I2C_ok;
     }
     else
     {
-        return 1;
+        return I2C_err;
     }
 }
 
 i2c_status_t DS3231::getStatus(uint8_t *status)
 {
-    return i2c_readReg(DS3231_ADDRESS, DS3231_REG_STATUS, status, 1);
+    return (i2c_status_t)i2c_readReg(DS3231_ADDRESS, DS3231_REG_STATUS, status, 1);
 }
 
 i2c_status_t DS3231::getAlarm(uint8_t alarmNum, DS3231_Time *timeStruct)
@@ -132,7 +133,7 @@ i2c_status_t DS3231::getAlarm(uint8_t alarmNum, DS3231_Time *timeStruct)
         timeStruct->Minutes = bcd2bin(tempBytes[1] & 0x7F);
         timeStruct->Hours = getHoursFromByte(tempBytes[2] & 0x7F);
 
-        return 0;
+        return I2C_ok;
     }
     else if (alarmNum == DS3231_ALARM_2 && i2c_readReg(DS3231_ADDRESS, DS3231_REG_ALARM2_MINUTES, tempBytes, 3) == 0)
     {
@@ -140,28 +141,32 @@ i2c_status_t DS3231::getAlarm(uint8_t alarmNum, DS3231_Time *timeStruct)
         timeStruct->Minutes = bcd2bin(tempBytes[0] & 0x7F);
         timeStruct->Hours = getHoursFromByte(tempBytes[1] & 0x7F);
 
-        return 0;
+        return I2C_ok;
     }
-    return 1;
+    return I2C_err;
 }
 
 i2c_status_t DS3231::setAlarm(uint8_t alarmNum, DS3231_Time *time, alarmtype_t alarmType)
 {
-    uint8_t alarmRegs[4];
-    alarmRegs[0] = (bin2bcd(time->Seconds) & 0x7F) | (alarmType & 0x01) << 7;
-    alarmRegs[1] = (bin2bcd(time->Minutes) & 0x7F) | (alarmType & 0x02) << 6;
-    alarmRegs[2] = (bin2bcd(time->Hours) & 0x3F) | (alarmType & 0x04) << 5;
-    alarmRegs[3] = (time->DayOfWeek & 0x0F) | (alarmType & 0x08) << 4;
+    uint8_t alarmRegs[4] = {0, 0, 0, 0};
+    if (alarmType != ALARM_EACH_MINUTE)
+    {
+        alarmRegs[0] = (bin2bcd(time->Seconds) & 0x7F) | (alarmType & 0x01) << 7;
+        alarmRegs[1] = (bin2bcd(time->Minutes) & 0x7F) | (alarmType & 0x02) << 6;
+        alarmRegs[2] = (bin2bcd(time->Hours) & 0x3F) | (alarmType & 0x04) << 5;
+        alarmRegs[3] = (time->DayOfWeek & 0x0F);
+    }
+    alarmRegs[3] |= (alarmType & 0x08) << 4;
 
     if (alarmNum == DS3231_ALARM_1)
     {
-        return i2c_writeReg(DS3231_ADDRESS, DS3231_REG_ALARM1_SECONS, alarmRegs, 4);
+        return (i2c_status_t)i2c_writeReg(DS3231_ADDRESS, DS3231_REG_ALARM1_SECONS, alarmRegs, 4);
     }
     else if (alarmNum == DS3231_ALARM_2)
     {
-        return i2c_writeReg(DS3231_ADDRESS, DS3231_REG_ALARM2_MINUTES, &alarmRegs[1], 3);
+        return (i2c_status_t)i2c_writeReg(DS3231_ADDRESS, DS3231_REG_ALARM2_MINUTES, &alarmRegs[1], 3);
     }
-    return 1;
+    return I2C_err;
 }
 
 i2c_status_t DS3231::enableAlarm(uint8_t alarmNum)
@@ -174,7 +179,7 @@ i2c_status_t DS3231::enableAlarm(uint8_t alarmNum)
     {
         return setBit(DS3231_REG_CONTROL, DS3231_BIT_A2IE);
     }
-    return 1;
+    return I2C_err;
 }
 
 i2c_status_t DS3231::disableAlarm(uint8_t alarmNum)
@@ -187,7 +192,7 @@ i2c_status_t DS3231::disableAlarm(uint8_t alarmNum)
     {
         return clearBit(DS3231_REG_CONTROL, DS3231_BIT_A2IE);
     }
-    return 1;
+    return I2C_err;
 }
 
 i2c_status_t DS3231::resetAlarm(uint8_t alarmNum)
@@ -200,7 +205,7 @@ i2c_status_t DS3231::resetAlarm(uint8_t alarmNum)
     {
         return clearBit(DS3231_REG_STATUS, DS3231_BIT_A2IF);
     }
-    return 1;
+    return I2C_err;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////

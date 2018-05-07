@@ -5,21 +5,16 @@
 
 class Timer0
 {
-private:
-  void setCompare(uint8_t offsetFromNow);
-
+  
 public:
+  static volatile bool interruptOccured;
+  static volatile uint32_t remainderTime;
+
   void init();
 
   void setTimer(uint32_t offsetFromNow);
-  uint8_t hasInterrupt();
+  bool hasInterrupt();
   void clearInterrupt();
-
-  static Timer0 &getInstance()
-  {
-    static Timer0 INSTANCE;
-    return INSTANCE;
-  }
 };
 
 #endif

@@ -4,21 +4,28 @@
 
 #include "Timer0.hpp"
 
-bool Timer0_Interrupt = false;
-uint32_t Timer0_Remainder = 0;
+volatile bool Timer0::interruptOccured = false;
+volatile uint32_t Timer0::remainderTime = 0;
+
+ISR(TIMER0_OVF_vect)
+{
+    if (Timer0::remainderTime >= 0x100)
+    {
+        Timer0::remainderTime -= 0x100;
+    }
+    if (Timer0::remainderTime < 0x100)
+    {
+        OCR0A = Timer0::remainderTime;
+        Timer0::remainderTime = 0;
+        TIMSK0 = _BV(OCIE0A);
+    }
+}
+
 ISR(TIMER0_COMPA_vect)
 {
-    if(Timer0_Remainder > 0x100){
-        Timer0_Remainder -= 0x100;
-        if(Timer0_Remainder < 0x100){
-            OCR0A = Timer0_Remainder;
-            Timer0_Remainder = 0;
-        }
-    }else{
-        Timer0_Interrupt = true;
-        // Disable Interrupt
-        TIMSK0 &= ~_BV(OCIE0A);
-    }
+    Timer0::interruptOccured = true;
+    // Disable Interrupts
+    TIMSK0 = 0x00;
 }
 
 void Timer0::init()
@@ -27,38 +34,43 @@ void Timer0::init()
     PORTD |= _BV(PD4); //TODO: ADD EXTERNAL PULLUP
 
     // Setup Timer
+    TCNT0 = 0;
     TCCR0A = 0x00;
     TCCR0B = _BV(CS02) | _BV(CS01); // Setup T1 on Falling Edge (Pull-Up is not that powerfull)
-}
-
-void Timer0::setCompare(uint8_t offsetFromNow){
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
-    {
-        OCR0A = TCNT0 + offsetFromNow;
-    }
+    TIMSK0 = 0x00;
+    TIFR0 = 0x00;
 }
 void Timer0::setTimer(uint32_t offsetFromNow)
 {
-    // Clear Interrupt, just to be save
-    TIFR0 |= _BV(OCF0A);
-    
-    Timer0_Remainder = offsetFromNow;
-    if(Timer0_Remainder > 0xFF){
-        TCNT0 = 0x00;
-        OCR0A = 0xFF;
-    }else{
-        Timer0_Remainder = 0;
-        setCompare(offsetFromNow & 0xFF);
-    }
+    // Clear all Pending interrupts
+    TIFR0 = 0xFF;
+    interruptOccured = 0;
 
-    // Enable Interrupt
-    TIMSK0 |= _BV(OCIE0A);
+    if (offsetFromNow > 0xFF)
+    {
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+        {
+            TCNT0 = 0;
+            remainderTime = offsetFromNow;
+            TIMSK0 = _BV(TOIE0);
+        }
+    }
+    else
+    {
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+        {
+            TCNT0 = 0;
+            OCR0A = offsetFromNow;
+            TIMSK0 = _BV(OCIE0A);
+        }
+    }
 }
-uint8_t Timer0::hasInterrupt()
+
+bool Timer0::hasInterrupt()
 {
-    return Timer0_Interrupt;
+    return interruptOccured;
 }
 void Timer0::clearInterrupt()
 {
-    Timer0_Interrupt = false;
+    interruptOccured = false;
 }

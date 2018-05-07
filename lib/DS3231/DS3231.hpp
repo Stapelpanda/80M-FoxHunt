@@ -67,7 +67,10 @@ typedef enum {
   ALARM_MATCH_DAYS_HOURS_MINUTES_SECONDS = 0x00,
 } alarmtype_t;
 
-typedef bool i2c_status_t;
+typedef enum{
+  I2C_ok,
+  I2C_err
+} i2c_status_t;
 
 class DS3231
 {
@@ -75,9 +78,10 @@ private:
   i2c_status_t changeBit(uint8_t reg, uint8_t bit, uint8_t value);
   i2c_status_t setBit(uint8_t reg, uint8_t bit);
   i2c_status_t clearBit(uint8_t reg, uint8_t bit);
-  i2c_status_t getHoursFromByte(uint8_t hourByte);
+  uint8_t getHoursFromByte(uint8_t hourByte);
 
 public:
+  static bool INT0_Interrupt;
   i2c_status_t init();
   i2c_status_t enable32KHz();
   i2c_status_t disable32KHz();
@@ -93,7 +97,7 @@ public:
   i2c_status_t disableAlarm(uint8_t alarmNum);
   i2c_status_t resetAlarm(uint8_t alarmNum);
 
-  static DS3231& getInstance()
+  static DS3231 &getInstance()
   {
     static DS3231 INSTANCE;
     return INSTANCE;

@@ -7,8 +7,9 @@
 #include "PWMTimer/PWMTimer.hpp"
 #include "Timer0/Timer0.hpp"
 
-PWMTimer pwmOutput = PWMTimer::getInstance();
-Timer0 delayTimer = Timer0::getInstance();
+PWMTimer pwmOutput;
+Timer0 delayTimer;
+
 enum
 {
     MT_Start,
@@ -19,15 +20,21 @@ enum
     MT_Pause,     // Pause After Dah or Dit
     MT_CharPause, // Pause After Char
 
-    MT_WordPause // Pause after word
+    MT_WordPause, // Pause after word
+
+    MT_Stop
 };
 
 void MorseTransmitter::init()
 {
     setSpeed(12);
+    DDRB |= _BV(PB1);
 
     pwmOutput.init();
     delayTimer.init();
+
+    delayTimerActive = false;
+    stop();
 }
 
 void MorseTransmitter::setSpeed(uint8_t wpm)
@@ -35,8 +42,7 @@ void MorseTransmitter::setSpeed(uint8_t wpm)
     // ElementsPerSecond = (PARIS * WPM)    PARIS = 50 spots
     // Second = 32 * 1024
     // elementDelay = Second / ElementsPerSecond
-    // elementDelay = (32UL * 1024UL) / (50UL * wpm);
-    elementDelay = 1;
+    elementDelay = (32UL * 1024UL * 60UL) / (50UL * wpm);
 }
 
 void MorseTransmitter::setStringSet(MorseString_t *set)
@@ -55,10 +61,17 @@ void MorseTransmitter::setStringSetIndex(uint8_t idx)
     }
 }
 
-void MorseTransmitter::setStart()
+void MorseTransmitter::start()
 {
     pwmOutput.disableOutput();
+    delayTimer.clearInterrupt();
     state = MT_Start;
+}
+
+void MorseTransmitter::stop()
+{
+    pwmOutput.disableOutput();
+    state = MT_Stop;    
 }
 
 void MorseTransmitter::stateMachine()
@@ -66,6 +79,8 @@ void MorseTransmitter::stateMachine()
     // Tricky Bit, State machine is !!FALL THROUGH CASE STATEMENT!!
     switch (state)
     {
+    case MT_WordPause:
+        state = MT_Start;
     case MT_Start:
         // Set CharIdx to 0, start Transmit if all variables are set
         morseStringCharIndex = 0;
@@ -74,6 +89,8 @@ void MorseTransmitter::stateMachine()
         {
             return;
         }
+    case MT_Pause:
+    case MT_CharPause:
         state = MT_Transmit;
     case MT_Transmit:
         // Morse pattern is built like this:
@@ -85,8 +102,9 @@ void MorseTransmitter::stateMachine()
             // Resolve Errors by setting them to default
             if (morseStringIndex >= morseStrings->count)
                 morseStringIndex = 0;
-            if (morseStringCharIndex >= strlen(morseStrings->elements[morseStringIndex]))
+            if (morseStringCharIndex > strlen(morseStrings->elements[morseStringIndex])){
                 morseStringCharIndex = 0;
+            }
 
             char morseStringChar = morseStrings->elements[morseStringIndex][morseStringCharIndex];
             if (morseStringChar == '\0')
@@ -110,9 +128,11 @@ void MorseTransmitter::stateMachine()
         {
             state = MT_CharPause;
             morsePattern = 0;
+            morseStringCharIndex++;
         }
         else if (morsePattern > 1)
         {
+            
             if (morsePattern & 0x01)
             {
                 state = MT_Dah;
@@ -121,9 +141,9 @@ void MorseTransmitter::stateMachine()
             {
                 state = MT_Dit;
             }
-            // pwmOutput.enableOutput();
+            pwmOutput.enableOutput();
             // Shift pattern
-            morsePattern >>= 1;
+            morsePattern >>= 1;            
         }
         break;
 
@@ -131,15 +151,6 @@ void MorseTransmitter::stateMachine()
     case MT_Dit:
         pwmOutput.disableOutput();
         state = MT_Pause;
-        break;
-
-    case MT_Pause:
-    case MT_CharPause:
-        state = MT_Transmit;
-        break;
-
-    case MT_WordPause:
-        state = MT_Start;
         break;
     }
 }
@@ -178,18 +189,23 @@ uint8_t MorseTransmitter::loop()
     // Call State Machine
     if (state == MT_Start || delayTimer.hasInterrupt())
     {
-
         stateMachine();
         if (delayTimer.hasInterrupt())
         {
+            delayTimerActive = false;
             delayTimer.clearInterrupt();
         }
 
         // Call SetTimerByState, we need Idle for Timer1
         if (setTimerByState() == 1)
         {
+            delayTimerActive = true;
             return SLEEP_MODE_IDLE;
         }
     }
-    return SLEEP_MODE_EXT_STANDBY;
+    if(delayTimerActive){
+        return SLEEP_MODE_IDLE;
+    }else{
+        return SLEEP_MODE_EXT_STANDBY;
+    }
 }

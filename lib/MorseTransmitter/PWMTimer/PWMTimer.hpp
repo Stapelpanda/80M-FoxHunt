@@ -11,12 +11,6 @@ class PWMTimer
 
     void enableOutput();
     void disableOutput();
-
-    static PWMTimer &getInstance()
-    {
-        static PWMTimer INSTANCE;
-        return INSTANCE;
-    }
 };
 
 #endif
