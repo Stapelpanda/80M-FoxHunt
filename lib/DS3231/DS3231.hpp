@@ -56,6 +56,8 @@ public:
 
   static uint8_t timesEqual(DS3231_Time *time1, DS3231_Time *time2, uint8_t checkUntill);
   static uint32_t getDiffInSeconds(DS3231_Time *current, DS3231_Time *next);
+
+  uint32_t toSeconds();
 };
 
 typedef enum {
@@ -81,7 +83,7 @@ private:
   uint8_t getHoursFromByte(uint8_t hourByte);
 
 public:
-  static bool INT0_Interrupt;
+  static volatile bool INT0_Interrupt;
   i2c_status_t init();
   i2c_status_t enable32KHz();
   i2c_status_t disable32KHz();

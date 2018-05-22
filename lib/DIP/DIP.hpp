@@ -3,23 +3,15 @@
 
 #include <avr/io.h>
 
-#define DIP_Init()          \
-    {                       \
-        DDRC = DDRC & 0xF0; \
-        PORTC = 0x0F;       \
-        DDRD = DDRD & 0x3C; \
-        PORTD = 0xC3;       \
-    }
+#define DIP_Read_1() (1 - ((PIND & _BV(PD6)) >> PD6))
+#define DIP_Read_2() (1 - ((PIND & _BV(PD7)) >> PD7))
+#define DIP_Read_3() (1 - ((PIND & _BV(PD1)) >> PD1))
+#define DIP_Read_4() (1 - ((PIND & _BV(PD0)) >> PD0))
 
-#define DIP_Read_1() ((PIND & 0x40) > 0)
-#define DIP_Read_2() ((PIND & 0x80) > 0)
-#define DIP_Read_3() ((PIND & 0x02) > 0)
-#define DIP_Read_4() ((PIND & 0x01) > 0)
-
-#define DIP_Read_5() ((PINC & 0x08) > 0)
-#define DIP_Read_6() ((PINC & 0x04) > 0)
-#define DIP_Read_7() ((PINC & 0x02) > 0)
-#define DIP_Read_8() ((PINC & 0x01) > 0)
+#define DIP_Read_5() (1 - ((PINC & _BV(PC3)) >> PC3))
+#define DIP_Read_6() (1 - ((PINC & _BV(PC2)) >> PC2))
+#define DIP_Read_7() (1 - ((PINC & _BV(PC1)) >> PC1))
+#define DIP_Read_8() (1 - ((PINC & _BV(PC0)) >> PC0))
 
 class DIP
 {
@@ -32,6 +24,15 @@ class DIP
   public:
     void init()
     {
+        uint8_t temp;
+        temp = _BV(PC0) | _BV(PC1) | _BV(PC2) | _BV(PC3);
+        DDRC = DDRC & ~temp;
+        PORTC |= temp;
+
+        temp = _BV(PD6) | _BV(PD7) | _BV(PD1) | _BV(PD0);
+        DDRD = DDRD & ~(temp);
+        PORTD |= temp;
+        
         readSwitches();
     }
     void readSwitches()

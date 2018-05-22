@@ -5,7 +5,7 @@
 typedef struct
 {
   uint8_t count;
-  const char* elements[maxElements];
+  const char *elements[maxElements];
 } MorseString_t;
 
 class MorseTransmitter
@@ -33,6 +33,12 @@ public:
   void start();
   void stop();
   uint8_t loop();
+
+  static MorseTransmitter &getInstance()
+  {
+    static MorseTransmitter INSTANCE;
+    return INSTANCE;
+  }
 };
 
 #endif

@@ -21,7 +21,7 @@
 #define DBG2 PD5
 
 DIP DipSettings;
-MorseTransmitter morseTransmitter;
+MorseTransmitter morseTransmitter = MorseTransmitter::getInstance();
 ARDF_Mode ardfMode;
 
 MorseString_t MT_ARDF = {8, {"MO", "MOE", "MOI", "MOS", "MOH", "MO5", "MO5E", "MO5I"}};
@@ -55,6 +55,7 @@ void setupMode()
 
     ardfMode.setFoxNum(DipSettings.getFoxNum());
     ardfMode.setMode((ARDF_Mode_t)DipSettings.getMode());
+
 }
 
 int main(void)
@@ -68,14 +69,10 @@ int main(void)
     DS3231::getInstance().enable32KHz();
 
     // - Initialize Mode
-    // setupMode();
-    morseTransmitter.init();
-    morseTransmitter.setStringSet(&MT_ARDF);
-    morseTransmitter.setStringSetIndex(0);
+    setupMode();
+    ardfMode.start();
 
     sei();
-    ardfMode.start();
-    // morseTransmitter.start();
     while (1)
     {
         // Loop Functions determine Sleep Mode
